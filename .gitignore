@@ -1,0 +1,54 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Output of the build
+main
+
+# Temporary files
+*.log
+*.tmp
+
+# Dependencies
+vendor/
+
+# IDE/editor specific files
+.vscode/
+.idea/
+*.swp
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Go specific
+/go/bin/
+/go/pkg/
+/go/src/
+/bin/
+/pkg/
+
+# Docker specific
+docker-compose.override.yml
+
+# Database specific
+pgdata/
+*.sql
+*.dump
+
+# Node specific (if you have any front-end code or dependencies)
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Nakama specific
+nakama/data/
+
+# Coverage files
+coverage.out
