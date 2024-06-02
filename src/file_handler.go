@@ -25,6 +25,18 @@ type Response struct {
 	Content json.RawMessage `json:"content"`
 }
 
+const (
+	INVALID_REQUEST = 3
+	NOT_FOUND       = 5
+	INTERNAL        = 13
+)
+
+var (
+	errBadInput      = runtime.NewError("input contained invalid data", INVALID_REQUEST)
+	errFileNotFound  = runtime.NewError("file not found", NOT_FOUND)
+	errInternalError = runtime.NewError("internal server error", INTERNAL)
+)
+
 func RpcFileHandler(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, payload string) (string, error) {
 	logger.Debug("RpcFileHandler function was invoked with payload: %s", payload)
 
@@ -37,13 +49,13 @@ func RpcFileHandler(ctx context.Context, logger runtime.Logger, db *sql.DB, nk r
 
 	if payload == "" {
 		logger.Error("Payload is empty")
-		return "", fmt.Errorf("payload is empty")
+		return "", errBadInput
 
 	}
 
 	if err := json.Unmarshal([]byte(payload), &req); err != nil {
 		logger.Error("Failed to unmarshal payload: %v", err)
-		return "", err
+		return "", errBadInput
 	}
 
 	// Use defaults if values are not provided in the payload
@@ -62,7 +74,7 @@ func RpcFileHandler(ctx context.Context, logger runtime.Logger, db *sql.DB, nk r
 	fileContent, err := os.ReadFile(filePath)
 	if err != nil {
 		logger.Error("Failed to read file at %s: %v", filePath, err)
-		return "", fmt.Errorf("file not found")
+		return "", errFileNotFound
 	}
 	logger.Debug("Read file content: %s", string(fileContent))
 
@@ -96,7 +108,7 @@ func RpcFileHandler(ctx context.Context, logger runtime.Logger, db *sql.DB, nk r
 		}
 		if _, err := nk.StorageWrite(ctx, storageWrite); err != nil {
 			logger.Error("Failed to write to storage: %v", err)
-			return "", err
+			return "", errInternalError
 		}
 		logger.Debug("Content saved to storage")
 	} else {
@@ -107,7 +119,7 @@ func RpcFileHandler(ctx context.Context, logger runtime.Logger, db *sql.DB, nk r
 	responseJson, err := json.Marshal(response)
 	if err != nil {
 		logger.Error("Failed to marshal response: %v", err)
-		return "", err
+		return "", errInternalError
 	}
 
 	return string(responseJson), nil
