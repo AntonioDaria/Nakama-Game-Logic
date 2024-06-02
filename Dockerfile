@@ -12,7 +12,7 @@ COPY . .
 # Verify Go version
 RUN go version
 
-RUN go build --trimpath --mod=vendor --buildmode=plugin -o ./backend.so ./src/*.go
+RUN go build --trimpath --mod=vendor --buildmode=plugin -o ./backend.so ./src/rpc/*.go
 
 FROM heroiclabs/nakama:3.21.1
 
