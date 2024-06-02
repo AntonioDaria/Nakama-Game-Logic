@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/md5"
 	"database/sql"
@@ -24,6 +25,8 @@ type Response struct {
 	Hash    string          `json:"hash"`
 	Content json.RawMessage `json:"content"`
 }
+
+var baseDir string
 
 const (
 	INVALID_REQUEST = 3
@@ -70,7 +73,7 @@ func RpcFileHandler(ctx context.Context, logger runtime.Logger, db *sql.DB, nk r
 	}
 
 	// Read file
-	filePath := fmt.Sprintf("/nakama/data/json_files/%s/%s.json", req.Type, req.Version)
+	filePath := fmt.Sprintf("%s/%s/%s.json", baseDir, req.Type, req.Version)
 	fileContent, err := os.ReadFile(filePath)
 	if err != nil {
 		logger.Error("Failed to read file at %s: %v", filePath, err)
@@ -78,8 +81,16 @@ func RpcFileHandler(ctx context.Context, logger runtime.Logger, db *sql.DB, nk r
 	}
 	logger.Debug("Read file content: %s", string(fileContent))
 
+	// Compact the JSON content
+	var compactedContent bytes.Buffer
+	if err := json.Compact(&compactedContent, fileContent); err != nil {
+		logger.Error("Failed to compact JSON content: %v", err)
+		return "", err
+	}
+	compactFileContent := compactedContent.Bytes()
+
 	// Calculate hash
-	hash := md5.Sum(fileContent)
+	hash := md5.Sum(compactFileContent)
 	calculatedHash := hex.EncodeToString(hash[:])
 	logger.Debug("Calculated hash: %s", calculatedHash)
 
@@ -94,14 +105,14 @@ func RpcFileHandler(ctx context.Context, logger runtime.Logger, db *sql.DB, nk r
 	// Check hash and save content
 	if req.Hash != "" && req.Hash == calculatedHash {
 
-		response.Content = json.RawMessage(fileContent)
+		response.Content = json.RawMessage(compactFileContent)
 
 		// Save to Nakama's storage engine
 		storageWrite := []*runtime.StorageWrite{
 			{
 				Collection:      req.Type,
 				Key:             req.Version,
-				Value:           string(fileContent),
+				Value:           string(compactFileContent),
 				PermissionRead:  2, // Public read
 				PermissionWrite: 0, // Owner write
 			},
