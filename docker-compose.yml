@@ -43,6 +43,9 @@ services:
       - "7350:7350"
       - "7351:7351"
     restart: unless-stopped
+    volumes:
+      - ./local.yml:/nakama/data/local.yml  # Mounting the local.yml file
+      - ./data:/nakama/data/json_files  # Mounting the directory containing JSON files
 
 volumes:
   data:

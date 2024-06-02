@@ -9,8 +9,14 @@ import (
 
 func InitModule(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, initializer runtime.Initializer) error {
 	logger.Info("Module loaded")
-	// Register the RPC function
+	// Register the RPC function for health checks
 	if err := initializer.RegisterRpc("healthCheck", RpcHealthCheck); err != nil {
+		logger.Error("Unable to register: %v", err)
+		return err
+	}
+
+	// Register the RPC function for file handling
+	if err := initializer.RegisterRpc("fileHandler", RpcFileHandler); err != nil {
 		logger.Error("Unable to register: %v", err)
 		return err
 	}
