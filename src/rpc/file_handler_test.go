@@ -15,7 +15,7 @@ import (
 	"testing"
 
 	"github.com/heroiclabs/nakama-common/api"
-
+	"github.com/heroiclabs/nakama-common/runtime"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -168,6 +168,112 @@ func TestRpcFileHandler_StatusCodes(t *testing.T) {
 
 			// Check errors
 			assert.Equal(t, tt.expectedError, err)
+		})
+	}
+}
+
+func Test_useDefaults(t *testing.T) {
+	type args struct {
+		req *Payload
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "Defaults are used if not present in payload",
+			args: args{
+				req: &Payload{
+					Type:    "",
+					Version: "",
+					Hash:    "",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			useDefaults(tt.args.req)
+			// assert that the defaults are used
+			assert.Equal(t, "core", tt.args.req.Type)
+			assert.Equal(t, "1.0.0", tt.args.req.Version)
+			assert.Equal(t, "", tt.args.req.Hash)
+		})
+	}
+}
+
+func Test_calculateHash(t *testing.T) {
+	calculatedHash := "0af0df2ead849fb3cb4850e16196c43d"
+	type args struct {
+		fileContent []byte
+		logger      runtime.Logger
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "Calculate hash",
+			args: args{
+				fileContent: []byte(`{"example_data": "My data", "number": 123490}`),
+				logger:      &mocks.MockLogger{},
+			},
+			want: calculatedHash,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := calculateHash(tt.args.fileContent, tt.args.logger); got != tt.want {
+				t.Errorf("calculateHash() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSaveToStorageEngine(t *testing.T) {
+	type args struct {
+		ctx                context.Context
+		req                *Payload
+		logger             runtime.Logger
+		compactFileContent []byte
+		nk                 runtime.NakamaModule
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "Save to storage engine",
+			args: args{
+				ctx: context.Background(),
+				req: &Payload{
+					Type:    "core",
+					Version: "1.0.0",
+					Hash:    "85a11a7d406be88cb7e0b2c68b8134fc", // Example hash
+				},
+				logger:             &mocks.MockLogger{},
+				compactFileContent: []byte(`{"example_data": "My data", "number": 1234567890}`),
+				nk:                 &mocks.CustomMockNakamaModule{},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockNakama := tt.args.nk.(*mocks.CustomMockNakamaModule)
+
+			// Setup expectation for StorageWrite call
+			mockNakama.On("StorageWrite", mock.Anything, mock.Anything).Return([]*api.StorageObjectAck{}, nil)
+
+			if err := SaveToStorageEngine(tt.args.ctx, tt.args.req, tt.args.logger, tt.args.compactFileContent, tt.args.nk); (err != nil) != tt.wantErr {
+				t.Errorf("SaveToStorageEngine() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			// Assert that the expectations were met
+			mockNakama.AssertExpectations(t)
 		})
 	}
 }

@@ -62,37 +62,19 @@ func RpcFileHandler(ctx context.Context, logger runtime.Logger, db *sql.DB, nk r
 	}
 
 	// Use defaults if values are not provided in the payload
-	if req.Type == "" {
-		req.Type = "core"
-	}
-	if req.Version == "" {
-		req.Version = "1.0.0"
-	}
-	if req.Hash == "" {
-		req.Hash = ""
-	}
+	useDefaults(&req)
 
-	// Read file
-	filePath := fmt.Sprintf("%s/%s/%s.json", baseDir, req.Type, req.Version)
-	fileContent, err := os.ReadFile(filePath)
+	// Read and compact file
+	compactFileContent, err := readAndCompactFile(&req, logger)
 	if err != nil {
-		logger.Error("Failed to read file at %s: %v", filePath, err)
-		return "", errFileNotFound
+		if os.IsNotExist(err) {
+			return "", errFileNotFound
+		}
+		return "", errInternalError
 	}
-	logger.Debug("Read file content: %s", string(fileContent))
-
-	// Compact the JSON content
-	var compactedContent bytes.Buffer
-	if err := json.Compact(&compactedContent, fileContent); err != nil {
-		logger.Error("Failed to compact JSON content: %v", err)
-		return "", err
-	}
-	compactFileContent := compactedContent.Bytes()
 
 	// Calculate hash
-	hash := md5.Sum(compactFileContent)
-	calculatedHash := hex.EncodeToString(hash[:])
-	logger.Debug("Calculated hash: %s", calculatedHash)
+	calculatedHash := calculateHash(compactFileContent, logger)
 
 	// // Prepare response
 	response := Response{
@@ -104,24 +86,13 @@ func RpcFileHandler(ctx context.Context, logger runtime.Logger, db *sql.DB, nk r
 
 	// Check hash and save content
 	if req.Hash != "" && req.Hash == calculatedHash {
-
 		response.Content = json.RawMessage(compactFileContent)
 
 		// Save to Nakama's storage engine
-		storageWrite := []*runtime.StorageWrite{
-			{
-				Collection:      req.Type,
-				Key:             req.Version,
-				Value:           string(compactFileContent),
-				PermissionRead:  2, // Public read
-				PermissionWrite: 0, // Owner write
-			},
-		}
-		if _, err := nk.StorageWrite(ctx, storageWrite); err != nil {
-			logger.Error("Failed to write to storage: %v", err)
+		err := SaveToStorageEngine(ctx, &req, logger, compactFileContent, nk)
+		if err != nil {
 			return "", errInternalError
 		}
-		logger.Debug("Content saved to storage")
 	} else {
 		response.Content = nil
 		logger.Debug("Hashes do not match or no hash provided")
@@ -134,4 +105,64 @@ func RpcFileHandler(ctx context.Context, logger runtime.Logger, db *sql.DB, nk r
 	}
 
 	return string(responseJson), nil
+}
+
+func useDefaults(req *Payload) {
+	// Use defaults if values are not provided in the payload
+	if req.Type == "" {
+		req.Type = "core"
+	}
+	if req.Version == "" {
+		req.Version = "1.0.0"
+	}
+	if req.Hash == "" {
+		req.Hash = ""
+	}
+}
+
+func readAndCompactFile(req *Payload, logger runtime.Logger) ([]byte, error) {
+
+	filePath := fmt.Sprintf("%s/%s/%s.json", baseDir, req.Type, req.Version)
+	fileContent, err := os.ReadFile(filePath)
+	if err != nil {
+		logger.Error("Failed to read file at %s: %v", filePath, err)
+		return nil, err
+	}
+	logger.Debug("Read file content: %s", string(fileContent))
+
+	// Compact the JSON content
+	var compactedContent bytes.Buffer
+	if err := json.Compact(&compactedContent, fileContent); err != nil {
+		logger.Error("Failed to compact JSON content: %v", err)
+		return nil, err
+	}
+	compactFileContent := compactedContent.Bytes()
+
+	return compactFileContent, nil
+}
+
+func calculateHash(compactFileContent []byte, logger runtime.Logger) string {
+	hash := md5.Sum(compactFileContent)
+	calculatedHash := hex.EncodeToString(hash[:])
+	logger.Debug("Calculated hash: %s", calculatedHash)
+	return calculatedHash
+}
+
+func SaveToStorageEngine(ctx context.Context, req *Payload, logger runtime.Logger, compactFileContent []byte, nk runtime.NakamaModule) error {
+	storageWrite := []*runtime.StorageWrite{
+		{
+			Collection:      req.Type,
+			Key:             req.Version,
+			Value:           string(compactFileContent),
+			PermissionRead:  2, // Public read
+			PermissionWrite: 0, // Owner write
+		},
+	}
+	if _, err := nk.StorageWrite(ctx, storageWrite); err != nil {
+		logger.Error("Failed to write to storage: %v", err)
+		return err
+	}
+
+	logger.Debug("Content saved to storage")
+	return nil
 }
