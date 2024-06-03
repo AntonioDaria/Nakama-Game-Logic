@@ -202,5 +202,9 @@ On the topic of Modularity I could have probably refactored the rpc handler a bi
 I have not put a too much thoughts into this last point though, but it is something that I would normally have done if I was designing an API endpoint using an http framework like Fiber for example.
 I think for the purpose of this exercise breaking done the handler into smaller function to enhance readability and testability was a simpler choice, but definitely something to explore further.
 
+5. **Structure**
+With more time It would have been better to move the smaller functions that make up the rpc handler, into separate files as well as moving their tests into a separate test files.
+Again this would have increased Readability and improve maintainability.
+
 
 
