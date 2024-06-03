@@ -197,5 +197,10 @@ If I had more time, I could have also integrated Swagger documentation for the A
 
     - Improved Developer Experience: With Swagger's interactive interface, developers can test the API endpoints directly from the documentation, reducing the learning curve and increasing productivity.
 
+4. **Modularity**
+On the topic of Modularity I could have probably refactored the rpc handler a bit more by extracting the majority of the logic out to a service function and leave the handler just to deal wit the http response codes.
+I have not put a too much thought into this last point though, but it is something that I would normally have done if I was designing aan API endpoint using an http framework like Fiber for example.
+Definitely something to explore further.
+
 
 
