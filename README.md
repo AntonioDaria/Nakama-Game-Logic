@@ -199,8 +199,8 @@ If I had more time, I could have also integrated Swagger documentation for the A
 
 4. **Modularity**
 On the topic of Modularity I could have probably refactored the rpc handler a bit more by extracting the majority of the logic out to a service function and leave the handler just to deal wit the http response codes.
-I have not put a too much thought into this last point though, but it is something that I would normally have done if I was designing aan API endpoint using an http framework like Fiber for example.
-Definitely something to explore further.
+I have not put a too much thoughts into this last point though, but it is something that I would normally have done if I was designing an API endpoint using an http framework like Fiber for example.
+I think for the purpose of this exercise breaking done the handler into smaller function to enhance readability and testability was a simpler choice, but definitely something to explore further.
 
 
 
